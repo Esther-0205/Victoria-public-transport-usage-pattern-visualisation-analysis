@@ -1,0 +1,177 @@
+---
+title: "Project Prosoal - victoria-public-transport-visualisation "
+author: "Wei Wang"
+format: html
+editor: visual
+---
+
+## 1. Load and View the general information of dataset
+
+```{r}
+install.packages("skimr")
+pacman::p_load(skimr, dplyr, tidyverse)
+roadwork<- read.csv("~/Downloads/data visualization /datasets/monthly_public_transport_patronage_by_mode.csv")
+roadwork
+skim(roadwork)
+glimpse(roadwork)
+```
+
+#### Summary of all variables
+
+```{r}
+summary(roadwork)
+```
+
+#### Make sure Regional.Bus is numeric
+
+```{r}
+library(tidyverse)
+roadwork <- roadwork %>%
+  mutate(
+    Regional.bus = as.numeric(Regional.bus)
+  )
+```
+
+#### Find the NA value
+
+```{r}
+sum(is.na(roadwork$Regional.bus))
+```
+
+```{r}
+which(is.na(roadwork$Regional.bus))
+roadwork[83, ]
+roadwork %>%
+  slice(83) %>%
+  select(Year, Month, Month.name, Regional.bus, Total_usage)
+```
+
+#### Create a new column "Total_usage" each year for each mode
+
+```{r}
+roadwork %>%
+  mutate(
+    Total_usage = ( Metropolitan.train + Metropolitan.tram + Metropolitan.bus + Regional.bus + V.Line.coach + V.Line.train
+    ) 
+    )
+
+```
+
+#### Find the month/year with the highest and lowest total usage
+
+```{r}
+roadwork %>%
+  filter(Total_usage == max(Total_usage, na.rm = TRUE)) %>%
+  select(Month.name, Year, Total_usage)
+
+roadwork %>%
+  filter(Total_usage == min(Total_usage, na.rm = TRUE)) %>%
+  select(Month.name, Year, Total_usage)
+```
+
+**Graph1: Annual Total Patronage By year**
+
+```{r}
+library(ggplot2)
+annual_usage <- roadwork %>%
+  group_by(Year) %>%
+  summarise(
+    total_usage = sum(Total_usage, na.rm = TRUE)
+  )
+
+ggplot(annual_usage, aes(x = factor(Year), y = total_usage)) +
+  geom_col(fill = "#2C7FB8", width = 0.65) +
+  labs(
+    title = "Annual Public Transport Patronage in Victoria",
+    x = "Year",
+    y = "Total annual patronage"
+  ) +
+  scale_y_continuous(labels = scales::comma) +
+  theme_minimal()
+  
+```
+
+#### Graph 2: Monthly Patronage Trends by Transport Mode
+
+```{r}
+ggplot(roadwork_long, aes(x = Date, y = Patronage, colour = Mode)) +
+  geom_line(linewidth = 0.9, na.rm = TRUE) +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Monthly Public Transport Patronage by Mode in Victoria",
+    x = "Year",
+    y = "Monthly patronage",
+    colour = "Transport mode"
+  ) +
+  theme_minimal()
+```
+
+#### Graph 2.1: Create a separate small chart for each Mode
+
+```{r}
+ggplot(roadwork_long, aes(x = Date, y = Patronage, colour = Mode)) +
+  geom_line(linewidth = 0.9, na.rm = TRUE) +
+  facet_wrap(~ Mode, scales = "free_y") +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Monthly Public Transport Patronage Trends by Mode",
+    x = "Year",
+    y = "Monthly patronage"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+#### Graph 3: Total Patronage by Transport Mode
+
+```{r}
+mode_totals <- roadwork %>%
+  summarise(
+    Metropolitan_train = sum(Metropolitan.train, na.rm = TRUE),
+    Metropolitan_tram = sum(Metropolitan.tram, na.rm = TRUE),
+    Metropolitan_bus = sum(Metropolitan.bus, na.rm = TRUE),
+    V_Line_train = sum(V.Line.train, na.rm = TRUE),
+    V_Line_coach = sum(V.Line.coach, na.rm = TRUE),
+    Regional_bus = sum(Regional.bus, na.rm = TRUE)
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "Mode",
+    values_to = "Total_patronage"
+  )
+
+ggplot(mode_totals, aes(x = reorder(Mode, Total_patronage), y = Total_patronage)) +
+  geom_col(fill = "#41B6C4") +
+  coord_flip() +
+  labs(
+    title = "Total Patronage by Transport Mode",
+    x = "Transport mode",
+    y = "Total patronage"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal()
+```
+
+**Graph 4: Average Patronage by Season**
+
+```{r}
+roadwork$Season <- factor(
+  roadwork$Season,
+  levels = c("Spring", "Summer", "Autumn", "Winter")
+)
+levels(roadwork$Season)
+ggplot(roadwork, aes(x = Season, y = Total_usage, fill = Season)) +
+  geom_boxplot(alpha = 0.8, width = 0.6) +
+  labs(
+    title = "Monthly Public Transport Patronage by Season",
+    x = "Season",
+    y = "Monthly patronage"
+  ) +
+  scale_y_continuous(labels = comma) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+```
